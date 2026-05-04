@@ -87,6 +87,67 @@ const generateInterviewReportController = async (req, res) => {
   }
 };
 
+/**
+ * @desc   Get all interview reports of logged-in user
+ * @route  GET /api/interview/reports
+ * @access Private
+ */
+const getAllInterviewReportsController = async (req, res) => {
+  try {
+    const reports = await InterviewReportModel.find({
+      user: req.user._id,
+    })
+      .select("title matchScore createdAt updatedAt")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      message: "Interview reports fetched successfully",
+      reports,
+    });
+  } catch (error) {
+    console.error("Get all reports error:", error);
+
+    return res.status(500).json({
+      message: "Failed to fetch interview reports",
+    });
+  }
+};
+
+/**
+ * @desc   Get single interview report by ID
+ * @route  GET /api/interview/report/:interviewId
+ * @access Private
+ */
+const getInterviewReportByIdController = async (req, res) => {
+  try {
+    const { interviewId } = req.params;
+
+    const report = await InterviewReportModel.findOne({
+      _id: interviewId,
+      user: req.user._id,
+    });
+
+    if (!report) {
+      return res.status(404).json({
+        message: "Interview report not found",
+      });
+    }
+
+    return res.status(200).json({
+      message: "Interview report fetched successfully",
+      interviewReport: report,
+    });
+  } catch (error) {
+    console.error("Get report by ID error:", error);
+
+    return res.status(500).json({
+      message: "Failed to fetch interview report",
+    });
+  }
+};
+
 module.exports = {
   generateInterviewReportController,
+  getAllInterviewReportsController,
+  getInterviewReportByIdController,
 };

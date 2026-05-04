@@ -4,6 +4,8 @@ const upload = require("../middlewares/file.middleware");
 
 const {
   generateInterviewReportController,
+  getAllInterviewReportsController,
+  getInterviewReportByIdController,
 } = require("../controllers/interview.controller");
 
 const router = express.Router();
@@ -17,5 +19,9 @@ router.post(
   upload.single("resume"),
   generateInterviewReportController,
 );
+
+router.get("/reports", authUser, getAllInterviewReportsController);
+
+router.get("/report/:interviewId", authUser, getInterviewReportByIdController);
 
 module.exports = router;

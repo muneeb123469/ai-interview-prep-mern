@@ -1,52 +1,115 @@
 const { GoogleGenAI } = require("@google/genai");
-const { z } = require("zod");
-const { zodToJsonSchema } = require("zod-to-json-schema");
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GOOGLE_GENAI_API_KEY,
 });
 
 /**
- * Zod schema for structured AI output
+ * Gemini-native JSON schema for structured output
  */
-const interviewReportSchema = z.object({
-  title: z.string().describe("Job title"),
-  matchScore: z.number().describe("Score between 0 and 100"),
-
-  technicalQuestions: z.array(
-    z.object({
-      question: z.string(),
-      intention: z.string(),
-      answer: z.string(),
-    }),
-  ),
-
-  behavioralQuestions: z.array(
-    z.object({
-      question: z.string(),
-      intention: z.string(),
-      answer: z.string(),
-    }),
-  ),
-
-  skillGaps: z.array(
-    z.object({
-      skill: z.string(),
-      severity: z.enum(["low", "medium", "high"]),
-    }),
-  ),
-
-  preparationPlan: z.array(
-    z.object({
-      day: z.number(),
-      focus: z.string(),
-      tasks: z.array(z.string()),
-    }),
-  ),
-});
+const interviewReportSchema = {
+  type: "object",
+  properties: {
+    title: {
+      type: "string",
+      description: "The job title from the job description",
+    },
+    matchScore: {
+      type: "number",
+      description:
+        "A score between 0 and 100 indicating how well the candidate matches the job",
+    },
+    technicalQuestions: {
+      type: "array",
+      description: "List of technical interview questions",
+      items: {
+        type: "object",
+        properties: {
+          question: { type: "string", description: "The technical question" },
+          intention: {
+            type: "string",
+            description: "Why the interviewer asks this",
+          },
+          answer: {
+            type: "string",
+            description: "How the candidate should answer it",
+          },
+        },
+        required: ["question", "intention", "answer"],
+      },
+    },
+    behavioralQuestions: {
+      type: "array",
+      description: "List of behavioral interview questions",
+      items: {
+        type: "object",
+        properties: {
+          question: { type: "string", description: "The behavioral question" },
+          intention: {
+            type: "string",
+            description: "Why the interviewer asks this",
+          },
+          answer: {
+            type: "string",
+            description: "How the candidate should answer it",
+          },
+        },
+        required: ["question", "intention", "answer"],
+      },
+    },
+    skillGaps: {
+      type: "array",
+      description: "Skills the candidate is missing for this role",
+      items: {
+        type: "object",
+        properties: {
+          skill: { type: "string", description: "The missing skill" },
+          severity: {
+            type: "string",
+            enum: ["low", "medium", "high"],
+            description: "How critical this gap is",
+          },
+        },
+        required: ["skill", "severity"],
+      },
+    },
+    preparationPlan: {
+      type: "array",
+      description: "A day-by-day preparation plan for the candidate",
+      items: {
+        type: "object",
+        properties: {
+          day: { type: "number", description: "Day number" },
+          focus: {
+            type: "string",
+            description: "The main topic to focus on this day",
+          },
+          tasks: {
+            type: "array",
+            description: "List of tasks for this day",
+            items: { type: "string" },
+          },
+        },
+        required: ["day", "focus", "tasks"],
+      },
+    },
+  },
+  required: [
+    "title",
+    "matchScore",
+    "technicalQuestions",
+    "behavioralQuestions",
+    "skillGaps",
+    "preparationPlan",
+  ],
+};
 
 /**
- * Generate Interview Report using Gemini AI
+ * @desc   Generate Interview Report using Gemini AI
+ * @param  {string} resume - Extracted resume text
+ * @param  {string} selfDescription - Candidate's self description
+ * @param  {string} jobDescription - Target job description
+ * @returns {object} Structured interview report
  */
 const generateInterviewReport = async ({
   resume,
@@ -55,59 +118,53 @@ const generateInterviewReport = async ({
 }) => {
   try {
     const prompt = `
-You are an expert interview coach.
+You are an expert interview coach and career advisor.
 
-Analyze the following candidate profile and job description.
+Carefully analyze the candidate profile and the job description below.
+Generate a comprehensive, detailed interview preparation report.
 
-Return:
-- matchScore (0-100)
-- technicalQuestions (with intention + answer)
-- behavioralQuestions (with intention + answer)
-- skillGaps (with severity)
-- preparationPlan (day-wise)
+Your response MUST include:
+- title: exact job title from the job description
+- matchScore: integer 0-100 based on how well the candidate fits
+- technicalQuestions: at least 5 technical questions relevant to the role
+- behavioralQuestions: at least 4 behavioral questions
+- skillGaps: skills mentioned in the job description that the candidate lacks
+- preparationPlan: a 7-day study plan with specific daily tasks
 
-Candidate Resume:
-${resume}
+--- CANDIDATE RESUME ---
+${resume || "Not provided"}
 
-Self Description:
-${selfDescription}
+--- SELF DESCRIPTION ---
+${selfDescription || "Not provided"}
 
-Job Description:
+--- JOB DESCRIPTION ---
 ${jobDescription}
 `;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: zodToJsonSchema(interviewReportSchema),
-      },
-    });
+    let response;
+    let attempts = 0;
+    const maxAttempts = 3;
+
+    while (attempts < maxAttempts) {
+      try {
+        response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: interviewReportSchema,
+          },
+        });
+        break; // success, exit the loop
+      } catch (err) {
+        attempts++;
+        console.warn(`Gemini attempt ${attempts} failed:`, err.message);
+        if (attempts === maxAttempts) throw err;
+        await new Promise((res) => setTimeout(res, 2000 * attempts)); // wait 2s, 4s
+      }
+    }
 
     const parsed = JSON.parse(response.text);
-
-    /**
-     * 🔥 Strong parser for messy AI output
-     */
-    const safeParse = (item) => {
-      if (typeof item !== "string") return item;
-
-      try {
-        const cleaned = item.replace(/,\s*$/, "").replace(/`/g, ""); // remove backticks
-
-        return JSON.parse(cleaned);
-      } catch {
-        return item;
-      }
-    };
-
-    const fixArray = (arr = []) => arr.map(safeParse);
-
-    parsed.technicalQuestions = fixArray(parsed.technicalQuestions);
-    parsed.behavioralQuestions = fixArray(parsed.behavioralQuestions);
-    parsed.skillGaps = fixArray(parsed.skillGaps);
-    parsed.preparationPlan = fixArray(parsed.preparationPlan);
 
     return parsed;
   } catch (error) {
@@ -116,6 +173,4 @@ ${jobDescription}
   }
 };
 
-module.exports = {
-  generateInterviewReport,
-};
+module.exports = { generateInterviewReport };

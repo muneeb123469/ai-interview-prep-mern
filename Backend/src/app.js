@@ -1,7 +1,7 @@
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
-
+const interviewRoutes = require("./routes/interview.routes");
 const authRoutes = require("./routes/auth.routes");
 
 const app = express();
@@ -18,6 +18,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 app.use("/api/auth", authRoutes);
+app.use("/api/interview", interviewRoutes);
 
 app.get("/", (req, res) => {
   res.status(200).json({

@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const UserModel = require("../models/user.model");
+const BlacklistTokenModel = require("../models/blacklist.model");
 
 /**
  * @desc Middleware to protect routes
@@ -16,10 +17,19 @@ const authUser = async (req, res, next) => {
       });
     }
 
-    // 2. Verify token
+    // 🔥 2. Check if token is blacklisted (MOVE HERE)
+    const isBlacklisted = await BlacklistTokenModel.findOne({ token });
+
+    if (isBlacklisted) {
+      return res.status(401).json({
+        message: "Unauthorized: Token is blacklisted",
+      });
+    }
+
+    // 3. Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // 3. Get user from DB
+    // 4. Get user from DB
     const user = await UserModel.findById(decoded.id);
 
     if (!user) {
@@ -28,10 +38,10 @@ const authUser = async (req, res, next) => {
       });
     }
 
-    // 4. Attach user to request
+    // 5. Attach user to request
     req.user = user;
 
-    // 5. Continue
+    // 6. Continue
     next();
   } catch (error) {
     console.error("Auth middleware error:", error.message);

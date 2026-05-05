@@ -1,9 +1,8 @@
+import { RouterProvider } from "react-router-dom";
+import router from "./app.routes";
+
 function App() {
-  return (
-    <main>
-      <h1>Interview AI Frontend is Ready</h1>
-    </main>
-  );
+  return <RouterProvider router={router} />;
 }
 
 export default App;

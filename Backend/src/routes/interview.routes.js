@@ -6,6 +6,7 @@ const {
   generateInterviewReportController,
   getAllInterviewReportsController,
   getInterviewReportByIdController,
+  generateResumePdfController,
 } = require("../controllers/interview.controller");
 
 const router = express.Router();
@@ -23,5 +24,11 @@ router.post(
 router.get("/reports", authUser, getAllInterviewReportsController);
 
 router.get("/report/:interviewId", authUser, getInterviewReportByIdController);
+
+router.post(
+  "/resume/pdf/:interviewReportId",
+  authUser,
+  generateResumePdfController,
+);
 
 module.exports = router;

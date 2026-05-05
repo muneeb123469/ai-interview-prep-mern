@@ -1,5 +1,8 @@
 const InterviewReportModel = require("../models/interviewReport.model");
-const { generateInterviewReport } = require("../services/ai.service");
+const {
+  generateInterviewReport,
+  generateResumePdf,
+} = require("../services/ai.service");
 const pdfParse = require("pdf-parse");
 /**
  * @desc   Dynamically imports pdf-parse (ESM-only package)
@@ -64,7 +67,7 @@ const generateInterviewReportController = async (req, res) => {
       user: req.user._id,
       title: aiReport.title || "Interview Report",
       jobDescription,
-      resumeText,
+      resume: resumeText,
       selfDescription,
       matchScore:
         typeof aiReport.matchScore === "number" ? aiReport.matchScore : 0,
@@ -146,8 +149,51 @@ const getInterviewReportByIdController = async (req, res) => {
   }
 };
 
+/**
+ * @desc   Generate and download ATS-friendly resume PDF
+ * @route  POST /api/interview/resume/pdf/:interviewReportId
+ * @access Private
+ */
+const generateResumePdfController = async (req, res) => {
+  try {
+    const { interviewReportId } = req.params;
+
+    const report = await InterviewReportModel.findOne({
+      _id: interviewReportId,
+      user: req.user._id,
+    });
+
+    if (!report) {
+      return res.status(404).json({
+        message: "Interview report not found",
+      });
+    }
+
+    const pdfBuffer = await generateResumePdf({
+      resume: report.resume || report.resumeText || "",
+      selfDescription: report.selfDescription || "",
+      jobDescription: report.jobDescription || "",
+    });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="tailored_resume_${interviewReportId}.pdf"`,
+    );
+
+    return res.status(200).send(pdfBuffer);
+  } catch (error) {
+    console.error("Generate resume PDF error:", error);
+
+    return res.status(500).json({
+      message: "Failed to generate resume PDF",
+    });
+  }
+};
+
 module.exports = {
   generateInterviewReportController,
   getAllInterviewReportsController,
   getInterviewReportByIdController,
+  generateResumePdfController,
 };

@@ -1,25 +1,69 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+
+import useAuth from "../../auth/hooks/useAuth";
+import useInterview from "../hooks/useInterview";
+
 import "../../../style/Home.scss";
 
-const dummyReports = [
-  {
-    _id: "1",
-    title: "Frontend Engineer",
-    matchScore: 72,
-    createdAt: "2026-05-05",
-  },
-  {
-    _id: "2",
-    title: "MERN Stack Developer",
-    matchScore: 81,
-    createdAt: "2026-05-04",
-  },
-];
-
 function Home() {
+  const { user, handleLogout } = useAuth();
+  const { loading, reports, generateReport, getReports } = useInterview();
+
+  const [jobDescription, setJobDescription] = useState("");
+  const [selfDescription, setSelfDescription] = useState("");
+  const [resume, setResume] = useState(null);
+
+  useEffect(() => {
+    getReports();
+  }, []);
+
+  const handleFileChange = (event) => {
+    const file = event.target.files[0];
+
+    if (!file) return;
+
+    if (file.type !== "application/pdf") {
+      alert("Only PDF files are allowed");
+      event.target.value = "";
+      return;
+    }
+
+    setResume(file);
+  };
+
+  const submitHandler = async () => {
+    if (!jobDescription.trim()) {
+      alert("Job description is required");
+      return;
+    }
+
+    if (!resume && !selfDescription.trim()) {
+      alert("Please upload a resume or add a self-description");
+      return;
+    }
+
+    await generateReport({
+      resume,
+      selfDescription,
+      jobDescription,
+    });
+  };
+
   return (
     <main className="home-page">
       <div className="home-container">
+        <header className="home-topbar">
+          <div>
+            <span>Logged in as</span>
+            <strong>{user?.username || "User"}</strong>
+          </div>
+
+          <button type="button" onClick={handleLogout}>
+            Logout
+          </button>
+        </header>
+
         <section className="home-hero">
           <span className="eyebrow">AI-Powered Career Preparation</span>
           <h1>
@@ -50,9 +94,11 @@ function Home() {
                 className="home-textarea"
                 maxLength={5000}
                 placeholder="Paste the full job description here..."
+                value={jobDescription}
+                onChange={(event) => setJobDescription(event.target.value)}
               />
 
-              <p className="char-count">0 / 5000 chars</p>
+              <p className="char-count">{jobDescription.length} / 5000 chars</p>
             </div>
 
             <div className="strategy-panel">
@@ -63,10 +109,16 @@ function Home() {
               </p>
 
               <div className="upload-box">
-                <input id="resume" type="file" accept="application/pdf" />
+                <input
+                  id="resume"
+                  type="file"
+                  accept="application/pdf"
+                  onChange={handleFileChange}
+                />
+
                 <label htmlFor="resume">
                   <span className="upload-icon">↑</span>
-                  <strong>Upload Resume</strong>
+                  <strong>{resume ? resume.name : "Upload Resume"}</strong>
                   <span>PDF only, maximum 3MB</span>
                 </label>
               </div>
@@ -78,6 +130,8 @@ function Home() {
               <textarea
                 className="home-textarea self-description"
                 placeholder="Example: I am a junior MERN stack developer with React, Node.js, Express, and MongoDB project experience..."
+                value={selfDescription}
+                onChange={(event) => setSelfDescription(event.target.value)}
               />
 
               <div className="info-box">
@@ -88,8 +142,15 @@ function Home() {
           </div>
 
           <div className="strategy-footer">
-            <p>AI-Powered Strategy Generation · Approx 30s</p>
-            <button type="button">Generate My Interview Strategy</button>
+            <p>
+              {loading
+                ? "Loading your interview plan..."
+                : "AI-Powered Strategy Generation · Approx 30s"}
+            </p>
+
+            <button type="button" onClick={submitHandler} disabled={loading}>
+              {loading ? "Generating..." : "Generate My Interview Strategy"}
+            </button>
           </div>
         </section>
 
@@ -97,19 +158,28 @@ function Home() {
           <h2>Previous Reports</h2>
 
           <div className="report-list">
-            {dummyReports.map((report) => (
-              <article className="report-card" key={report._id}>
+            {reports.length === 0 ? (
+              <article className="report-card">
                 <div>
-                  <h3>{report.title}</h3>
-                  <p>
-                    Match Score: {report.matchScore}% · Created:{" "}
-                    {report.createdAt}
-                  </p>
+                  <h3>No reports yet</h3>
+                  <p>Your generated reports will appear here.</p>
                 </div>
-
-                <Link to={`/interview/${report._id}`}>Open Report</Link>
               </article>
-            ))}
+            ) : (
+              reports.map((report) => (
+                <article className="report-card" key={report._id}>
+                  <div>
+                    <h3>{report.title}</h3>
+                    <p>
+                      Match Score: {report.matchScore}% · Created:{" "}
+                      {new Date(report.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+
+                  <Link to={`/interview/${report._id}`}>Open Report</Link>
+                </article>
+              ))
+            )}
           </div>
         </section>
       </div>

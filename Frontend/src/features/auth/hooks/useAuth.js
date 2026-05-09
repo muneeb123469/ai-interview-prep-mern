@@ -1,34 +1,18 @@
-import { useContext, useEffect } from "react";
+import { useContext } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { AuthContext } from "../auth.context";
-import { register, login, logout, getMe } from "../services/auth.api";
+import { register, login, logout } from "../services/auth.api";
 
 /**
  * Custom hook for authentication logic.
  * It connects API layer with Auth Context state.
  */
 const useAuth = () => {
-  const { user, setUser, loading, setLoading } = useContext(AuthContext);
+  const { user, setUser, loading, setLoading, getAndSetUser } =
+    useContext(AuthContext);
+
   const navigate = useNavigate();
-
-  /**
-   * Rehydrate user on app refresh.
-   * This checks if token cookie is still valid.
-   */
-  const getAndSetUser = async () => {
-    try {
-      setLoading(true);
-
-      const data = await getMe();
-
-      setUser(data.user);
-    } catch (error) {
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   /**
    * Register user and redirect to login page.
@@ -73,19 +57,14 @@ const useAuth = () => {
       setLoading(true);
 
       await logout();
-
-      setUser(null);
-      navigate("/login");
     } catch (error) {
-      alert(error.response?.data?.message || "Logout failed");
+      console.warn("Logout warning:", error.response?.data?.message);
     } finally {
+      setUser(null);
       setLoading(false);
+      navigate("/login");
     }
   };
-
-  useEffect(() => {
-    getAndSetUser();
-  }, []);
 
   return {
     user,

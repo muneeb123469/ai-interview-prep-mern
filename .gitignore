@@ -33,3 +33,5 @@ temp/
 # Editor files
 .vscode/
 .idea/
+
+Backend/.cache/

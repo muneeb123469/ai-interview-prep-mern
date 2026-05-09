@@ -4,6 +4,11 @@ A full-stack MERN-based AI web application that helps users prepare for job inte
 
 ---
 
+## 🌐 Live Demo
+
+- Frontend: https://ai-interview-prep-mern.vercel.app
+- Backend API: https://ai-interview-prep-mern-1.onrender.com
+
 ## 🚀 Features
 
 ### Authentication

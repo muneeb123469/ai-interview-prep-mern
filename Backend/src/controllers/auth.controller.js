@@ -1,7 +1,55 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+
 const UserModel = require("../models/user.model");
 const BlacklistTokenModel = require("../models/blacklist.model");
+
+/**
+ * Returns cookie settings for local and deployed environments.
+ *
+ * Local:
+ * - secure: false
+ * - sameSite: "lax"
+ *
+ * Production:
+ * - secure: true
+ * - sameSite: "none"
+ *
+ * This is needed because deployed frontend and backend will be on different domains:
+ * Vercel frontend + Render backend.
+ */
+const getCookieOptions = () => {
+  const isProduction = process.env.NODE_ENV === "production";
+
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
+    maxAge: 24 * 60 * 60 * 1000, // 1 day
+  };
+};
+
+/**
+ * Returns cookie settings for clearing auth cookie.
+ */
+const getClearCookieOptions = () => {
+  const isProduction = process.env.NODE_ENV === "production";
+
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
+  };
+};
+
+/**
+ * Creates JWT token for authenticated user.
+ */
+const createAuthToken = (userId) => {
+  return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
+    expiresIn: "1d",
+  });
+};
 
 /**
  * @desc Register new user
@@ -38,18 +86,10 @@ const registerUserController = async (req, res) => {
     });
 
     // 5. Create JWT token
-    const token = jwt.sign(
-      { id: user._id },
-      process.env.JWT_SECRET || "defaultsecret",
-      { expiresIn: "1d" },
-    );
+    const token = createAuthToken(user._id);
 
     // 6. Set cookie
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-    });
+    res.cookie("token", token, getCookieOptions());
 
     // 7. Send response
     return res.status(201).json({
@@ -62,6 +102,7 @@ const registerUserController = async (req, res) => {
     });
   } catch (error) {
     console.error("Register error:", error.message);
+
     return res.status(500).json({
       message: "Internal server error",
     });
@@ -83,7 +124,7 @@ const loginUserController = async (req, res) => {
       });
     }
 
-    // 2. Find user (include password manually)
+    // 2. Find user and include password manually
     const user = await UserModel.findOne({ email }).select("+password");
 
     if (!user) {
@@ -102,16 +143,10 @@ const loginUserController = async (req, res) => {
     }
 
     // 4. Generate JWT token
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "1d",
-    });
+    const token = createAuthToken(user._id);
 
     // 5. Set cookie
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-    });
+    res.cookie("token", token, getCookieOptions());
 
     // 6. Send response
     return res.status(200).json({
@@ -124,6 +159,7 @@ const loginUserController = async (req, res) => {
     });
   } catch (error) {
     console.error("Login error:", error.message);
+
     return res.status(500).json({
       message: "Internal server error",
     });
@@ -170,11 +206,11 @@ const logoutUserController = async (req, res) => {
       });
     }
 
-    // Add token to blacklist
+    // 1. Add token to blacklist
     await BlacklistTokenModel.create({ token });
 
-    // Clear cookie
-    res.clearCookie("token");
+    // 2. Clear cookie with same cookie settings
+    res.clearCookie("token", getClearCookieOptions());
 
     return res.status(200).json({
       message: "Logout successful",

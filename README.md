@@ -1,4 +1,4 @@
-# AI Interview Preparation & Resume Builder
+# CareerFit AI – AI Interview Preparation & Resume Builder
 
 A full-stack MERN-based AI web application that helps users prepare for job interviews by analyzing their resume, self-description, and target job description. The app generates a personalized interview preparation report, identifies skill gaps, creates technical and behavioral questions, provides a preparation roadmap, and allows users to download an ATS-friendly resume PDF.
 
@@ -277,8 +277,8 @@ CLIENT_URL=http://localhost:5173
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/muneeb123469/ai-interview-prep-mern.git
-cd ai-interview-prep-mern
+git clone https://github.com/muneeb123469/careerfit-ai.git
+cd careerfit-ai
 ```
 
 ### 2. Setup Backend
